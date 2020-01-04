@@ -68,6 +68,9 @@ cgltf_size cgltf_write(const cgltf_options* options, char* buffer, cgltf_size si
 #define CGLTF_EXTENSION_FLAG_MATERIALS_UNLIT     (1 << 1)
 #define CGLTF_EXTENSION_FLAG_SPECULAR_GLOSSINESS (1 << 2)
 #define CGLTF_EXTENSION_FLAG_LIGHTS_PUNCTUAL     (1 << 3)
+// CAPTURE_fixture start
+#define CGLTF_EXTENSION_FLAG_FIXTURE             (1 << 4)
+// CAPTURE_fixture end
 
 typedef struct {
 	char* buffer;
@@ -335,6 +338,41 @@ static void cgltf_write_texture_transform(cgltf_write_context* context, const cg
 	cgltf_write_line(context, "}");
 	cgltf_write_line(context, "}");
 }
+
+// CAPTURE_fixture start
+static void cgltf_write_fixture(cgltf_write_context* context, const cgltf_fixture* fixture)
+{
+	cgltf_write_line(context, "\"extensions\": {");
+	cgltf_write_line(context, "\"CAPTURE_fixture\": {");
+	
+	cgltf_write_strprop(context, "manufacturer", fixture->manufacturer);
+	cgltf_write_strprop(context, "name", fixture->name);
+	cgltf_write_strprop(context, "atlabase_identifier", fixture->atlabase_identifier);
+	cgltf_write_boolprop_optional(context, "is_dimmer", fixture->is_dimmer, false);
+	cgltf_write_intprop(context, "channel", fixture->channel, 0);
+	cgltf_write_strprop(context, "circuit", fixture->circuit);
+	cgltf_write_strprop(context, "note", fixture->note);
+
+	cgltf_write_line(context, "\"patch\": [");
+	for (cgltf_size i = 0; i < fixture->modes_count; ++i)
+	{
+		const cgltf_fixture_mode* mode = fixture->modes + i;
+
+		cgltf_write_line(context, "{");
+		cgltf_write_strprop(context, "name", mode->name);
+		cgltf_write_strprop(context, "atlabase_identifier", mode->atlabase_identifier);
+		cgltf_write_intprop(context, "channel_count", mode->channel_count, 0);
+		cgltf_write_intprop(context, "universe", mode->universe, 0);
+		cgltf_write_intprop(context, "channel", mode->channel, 0);
+		cgltf_write_line(context, "}");
+
+	}
+	cgltf_write_line(context, "]");
+
+	cgltf_write_line(context, "}");
+	cgltf_write_line(context, "}");
+}
+// CAPTURE_fixture end
 
 static void cgltf_write_asset(cgltf_write_context* context, const cgltf_asset* asset)
 {
@@ -663,6 +701,14 @@ static void cgltf_write_node(cgltf_write_context* context, const cgltf_node* nod
 		CGLTF_WRITE_IDXPROP("camera", node->camera, context->data->cameras);
 	}
 
+	// CAPTURE_fixture start
+	if (node->has_fixture && !node->light)
+	{
+		context->extension_flags |= CGLTF_EXTENSION_FLAG_FIXTURE;
+		cgltf_write_fixture(context, &node->fixture);
+	}
+	// CAPTURE_fixture end
+
 	cgltf_write_line(context, "}");
 }
 
@@ -968,6 +1014,11 @@ cgltf_size cgltf_write(const cgltf_options* options, char* buffer, cgltf_size si
 		if (context->extension_flags & CGLTF_EXTENSION_FLAG_LIGHTS_PUNCTUAL) {
 			cgltf_write_stritem(context, "KHR_lights_punctual");
 		}
+		// CAPTURE_fixture start
+		if (context->extension_flags & CGLTF_EXTENSION_FLAG_FIXTURE) {
+			cgltf_write_stritem(context, "CAPTURE_fixture");
+		}
+		// CAPTURE_fixture end
 		cgltf_write_line(context, "]");
 	}
 

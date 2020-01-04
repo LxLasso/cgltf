@@ -435,6 +435,28 @@ typedef struct cgltf_light {
 	cgltf_float spot_outer_cone_angle;
 } cgltf_light;
 
+// CAPTURE_fixture start
+typedef struct cgltf_fixture_mode {
+	char* name;
+	char* atlabase_identifier;
+	cgltf_int channel_count;
+	cgltf_int universe;
+	cgltf_int channel;
+} cgltf_fixture_mode;
+
+typedef struct cgltf_fixture {
+	char* manufacturer;
+	char* name;
+	char* atlabase_identifier;
+	cgltf_bool is_dimmer;
+	cgltf_int channel;
+	char* circuit;
+	char* note;
+	cgltf_size modes_count;
+	cgltf_fixture_mode* modes;
+} cgltf_fixture;
+// CAPTURE_fixture end
+
 struct cgltf_node {
 	char* name;
 	cgltf_node* parent;
@@ -454,6 +476,10 @@ struct cgltf_node {
 	cgltf_float rotation[4];
 	cgltf_float scale[3];
 	cgltf_float matrix[16];
+	// CAPTURE_fixture start
+	cgltf_bool has_fixture;
+	cgltf_fixture fixture;
+	// CAPTURE_fixture end
 	cgltf_extras extras;
 };
 
@@ -1467,6 +1493,22 @@ void cgltf_free(cgltf_data* data)
 		data->memory_free(data->memory_user_data, data->nodes[i].name);
 		data->memory_free(data->memory_user_data, data->nodes[i].children);
 		data->memory_free(data->memory_user_data, data->nodes[i].weights);
+
+		// CAPTURE_fixture start
+		data->memory_free(data->memory_user_data, data->nodes[i].fixture.manufacturer);
+		data->memory_free(data->memory_user_data, data->nodes[i].fixture.name);
+		data->memory_free(data->memory_user_data, data->nodes[i].fixture.atlabase_identifier);
+		data->memory_free(data->memory_user_data, data->nodes[i].fixture.circuit);
+		data->memory_free(data->memory_user_data, data->nodes[i].fixture.note);
+
+		for (cgltf_size j = 0; j < data->nodes[i].fixture.modes_count; ++j)
+		{
+			data->memory_free(data->memory_user_data, data->nodes[i].fixture.modes[j].name);
+			data->memory_free(data->memory_user_data, data->nodes[i].fixture.modes[j].atlabase_identifier);
+		}
+
+		data->memory_free(data->memory_user_data, data->nodes[i].fixture.modes);
+		// CAPTURE_fixture end
 	}
 
 	data->memory_free(data->memory_user_data, data->nodes);
