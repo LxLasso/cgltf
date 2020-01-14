@@ -435,16 +435,21 @@ typedef struct cgltf_light {
 	cgltf_float spot_outer_cone_angle;
 } cgltf_light;
 
-// CAPTURE_fixture start
-typedef struct cgltf_fixture_mode {
+// CAPTURE_model start
+typedef struct cgltf_capture_fixture_frame {
+	char* short_name;
+	char* atlabase_identifier;
+} cgltf_capture_fixture_frame;
+
+typedef struct cgltf_capture_fixture_mode {
 	char* name;
 	char* atlabase_identifier;
 	cgltf_int channel_count;
 	cgltf_int universe;
 	cgltf_int channel;
-} cgltf_fixture_mode;
+} cgltf_capture_fixture_mode;
 
-typedef struct cgltf_fixture {
+typedef struct cgltf_capture_fixture {
 	char* manufacturer;
 	char* name;
 	char* atlabase_identifier;
@@ -452,10 +457,20 @@ typedef struct cgltf_fixture {
 	cgltf_int channel;
 	char* circuit;
 	char* note;
+	cgltf_capture_fixture_frame* filters;
+	cgltf_size filter_count;
+	cgltf_capture_fixture_frame* gobos;
+	cgltf_size gobo_count;
+	cgltf_capture_fixture_mode* modes;
 	cgltf_size modes_count;
-	cgltf_fixture_mode* modes;
-} cgltf_fixture;
-// CAPTURE_fixture end
+} cgltf_capture_fixture;
+
+typedef struct cgltf_capture_model {
+	char* identifier;
+	cgltf_bool has_fixture;
+	cgltf_capture_fixture fixture;
+} cgltf_capture_model;
+// CAPTURE_model end
 
 struct cgltf_node {
 	char* name;
@@ -476,10 +491,10 @@ struct cgltf_node {
 	cgltf_float rotation[4];
 	cgltf_float scale[3];
 	cgltf_float matrix[16];
-	// CAPTURE_fixture start
-	cgltf_bool has_fixture;
-	cgltf_fixture fixture;
-	// CAPTURE_fixture end
+	// CAPTURE_model start
+	cgltf_bool has_capture_model;
+	cgltf_capture_model capture_model;
+	// CAPTURE_model end
 	cgltf_extras extras;
 };
 
@@ -518,6 +533,10 @@ typedef struct cgltf_asset {
 	char* generator;
 	char* version;
 	char* min_version;
+	// CAPTURE_model start
+	cgltf_bool has_capture_model;
+	cgltf_capture_model capture_model;
+	// CAPTURE_model end
 	cgltf_extras extras;
 } cgltf_asset;
 
@@ -1375,6 +1394,39 @@ cgltf_result cgltf_copy_extras_json(const cgltf_data* data, const cgltf_extras* 
 	return cgltf_result_success;
 }
 
+void cgltf_free_capture_model(cgltf_data* data, cgltf_capture_model* model)
+{
+	data->memory_free(data->memory_user_data, model->identifier);
+	data->memory_free(data->memory_user_data, model->fixture.manufacturer);
+	data->memory_free(data->memory_user_data, model->fixture.name);
+	data->memory_free(data->memory_user_data, model->fixture.atlabase_identifier);
+
+	for (cgltf_size j = 0; j < model->fixture.filter_count; ++j)
+	{
+		data->memory_free(data->memory_user_data, model->fixture.filters[j].short_name);
+		data->memory_free(data->memory_user_data, model->fixture.filters[j].atlabase_identifier);
+	}
+	data->memory_free(data->memory_user_data, model->fixture.filters);
+
+	for (cgltf_size j = 0; j < model->fixture.gobo_count; ++j)
+	{
+		data->memory_free(data->memory_user_data, model->fixture.gobos[j].short_name);
+		data->memory_free(data->memory_user_data, model->fixture.gobos[j].atlabase_identifier);
+	}
+	data->memory_free(data->memory_user_data, model->fixture.gobos);
+
+	data->memory_free(data->memory_user_data, model->fixture.circuit);
+	data->memory_free(data->memory_user_data, model->fixture.note);
+
+	for (cgltf_size j = 0; j < model->fixture.modes_count; ++j)
+	{
+		data->memory_free(data->memory_user_data, model->fixture.modes[j].name);
+		data->memory_free(data->memory_user_data, model->fixture.modes[j].atlabase_identifier);
+	}
+
+	data->memory_free(data->memory_user_data, model->fixture.modes);
+}
+
 void cgltf_free(cgltf_data* data)
 {
 	if (!data)
@@ -1386,6 +1438,9 @@ void cgltf_free(cgltf_data* data)
 	data->memory_free(data->memory_user_data, data->asset.generator);
 	data->memory_free(data->memory_user_data, data->asset.version);
 	data->memory_free(data->memory_user_data, data->asset.min_version);
+	// CAPTURE_model start
+	cgltf_free_capture_model(data, &data->asset.capture_model);
+	// CAPTURE_model end
 
 	data->memory_free(data->memory_user_data, data->accessors);
 	data->memory_free(data->memory_user_data, data->buffer_views);
@@ -1494,21 +1549,9 @@ void cgltf_free(cgltf_data* data)
 		data->memory_free(data->memory_user_data, data->nodes[i].children);
 		data->memory_free(data->memory_user_data, data->nodes[i].weights);
 
-		// CAPTURE_fixture start
-		data->memory_free(data->memory_user_data, data->nodes[i].fixture.manufacturer);
-		data->memory_free(data->memory_user_data, data->nodes[i].fixture.name);
-		data->memory_free(data->memory_user_data, data->nodes[i].fixture.atlabase_identifier);
-		data->memory_free(data->memory_user_data, data->nodes[i].fixture.circuit);
-		data->memory_free(data->memory_user_data, data->nodes[i].fixture.note);
-
-		for (cgltf_size j = 0; j < data->nodes[i].fixture.modes_count; ++j)
-		{
-			data->memory_free(data->memory_user_data, data->nodes[i].fixture.modes[j].name);
-			data->memory_free(data->memory_user_data, data->nodes[i].fixture.modes[j].atlabase_identifier);
-		}
-
-		data->memory_free(data->memory_user_data, data->nodes[i].fixture.modes);
-		// CAPTURE_fixture end
+		// CAPTURE_model start
+		cgltf_free_capture_model(data, &data->nodes[i].capture_model);
+		// CAPTURE_model end
 	}
 
 	data->memory_free(data->memory_user_data, data->nodes);

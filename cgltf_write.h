@@ -68,9 +68,9 @@ cgltf_size cgltf_write(const cgltf_options* options, char* buffer, cgltf_size si
 #define CGLTF_EXTENSION_FLAG_MATERIALS_UNLIT     (1 << 1)
 #define CGLTF_EXTENSION_FLAG_SPECULAR_GLOSSINESS (1 << 2)
 #define CGLTF_EXTENSION_FLAG_LIGHTS_PUNCTUAL     (1 << 3)
-// CAPTURE_fixture start
-#define CGLTF_EXTENSION_FLAG_FIXTURE             (1 << 4)
-// CAPTURE_fixture end
+// CAPTURE_model start
+#define CGLTF_EXTENSION_FLAG_CAPTURE_MODEL             (1 << 4)
+// CAPTURE_model end
 
 typedef struct {
 	char* buffer;
@@ -339,40 +339,79 @@ static void cgltf_write_texture_transform(cgltf_write_context* context, const cg
 	cgltf_write_line(context, "}");
 }
 
-// CAPTURE_fixture start
-static void cgltf_write_fixture(cgltf_write_context* context, const cgltf_fixture* fixture)
+// CAPTURE_model start
+static void cgltf_write_capture_model(cgltf_write_context* context, const cgltf_capture_model* model)
 {
 	cgltf_write_line(context, "\"extensions\": {");
-	cgltf_write_line(context, "\"CAPTURE_fixture\": {");
-	
-	cgltf_write_strprop(context, "manufacturer", fixture->manufacturer);
-	cgltf_write_strprop(context, "name", fixture->name);
-	cgltf_write_strprop(context, "atlabase_identifier", fixture->atlabase_identifier);
-	cgltf_write_boolprop_optional(context, "is_dimmer", fixture->is_dimmer, false);
-	cgltf_write_intprop(context, "channel", fixture->channel, 0);
-	cgltf_write_strprop(context, "circuit", fixture->circuit);
-	cgltf_write_strprop(context, "note", fixture->note);
+	cgltf_write_line(context, "\"CAPTURE_model\": {");
 
-	cgltf_write_line(context, "\"patch\": [");
-	for (cgltf_size i = 0; i < fixture->modes_count; ++i)
+	cgltf_write_strprop(context, "identifier", model->identifier);
+
+	if (model->has_fixture)
 	{
-		const cgltf_fixture_mode* mode = fixture->modes + i;
+		cgltf_write_line(context, "\"fixture\": {");
 
-		cgltf_write_line(context, "{");
-		cgltf_write_strprop(context, "name", mode->name);
-		cgltf_write_strprop(context, "atlabase_identifier", mode->atlabase_identifier);
-		cgltf_write_intprop(context, "channel_count", mode->channel_count, 0);
-		cgltf_write_intprop(context, "universe", mode->universe, 0);
-		cgltf_write_intprop(context, "channel", mode->channel, 0);
+		cgltf_write_strprop(context, "manufacturer", model->fixture.manufacturer);
+		cgltf_write_strprop(context, "name", model->fixture.name);
+		cgltf_write_strprop(context, "atlabase_identifier", model->fixture.atlabase_identifier);
+		cgltf_write_boolprop_optional(context, "is_dimmer", model->fixture.is_dimmer, false);
+		
+		if (model->fixture.filter_count > 0)
+		{
+			cgltf_write_line(context, "\"filters\": [");
+			for (cgltf_size i = 0; i < model->fixture.filter_count; ++i)
+			{
+				cgltf_write_line(context, "{");
+				cgltf_write_strprop(context, "short_name", model->fixture.filters[i].short_name);
+				cgltf_write_strprop(context, "atlabase_identifier", model->fixture.filters[i].atlabase_identifier);
+				cgltf_write_line(context, "}");
+			}
+			cgltf_write_line(context, "]");
+		}
+
+		if (model->fixture.gobo_count > 0)
+		{
+			cgltf_write_line(context, "\"gobos\": [");
+			for (cgltf_size i = 0; i < model->fixture.gobo_count; ++i)
+			{
+				cgltf_write_line(context, "{");
+				cgltf_write_strprop(context, "short_name", model->fixture.gobos[i].short_name);
+				cgltf_write_strprop(context, "atlabase_identifier", model->fixture.gobos[i].atlabase_identifier);
+				cgltf_write_line(context, "}");
+			}
+			cgltf_write_line(context, "]");
+		}
+		
+		cgltf_write_intprop(context, "channel", model->fixture.channel, 0);
+		cgltf_write_strprop(context, "circuit", model->fixture.circuit);
+		cgltf_write_strprop(context, "note", model->fixture.note);
+
+		if (model->fixture.modes_count > 0)
+		{
+			cgltf_write_line(context, "\"patch\": [");
+			for (cgltf_size i = 0; i < model->fixture.modes_count; ++i)
+			{
+				const cgltf_capture_fixture_mode* mode = model->fixture.modes + i;
+
+				cgltf_write_line(context, "{");
+				cgltf_write_strprop(context, "name", mode->name);
+				cgltf_write_strprop(context, "atlabase_identifier", mode->atlabase_identifier);
+				cgltf_write_intprop(context, "channel_count", mode->channel_count, 0);
+				cgltf_write_intprop(context, "universe", mode->universe, 0);
+				cgltf_write_intprop(context, "channel", mode->channel, 0);
+				cgltf_write_line(context, "}");
+
+			}
+			cgltf_write_line(context, "]");
+		}
+
 		cgltf_write_line(context, "}");
-
 	}
-	cgltf_write_line(context, "]");
 
 	cgltf_write_line(context, "}");
 	cgltf_write_line(context, "}");
 }
-// CAPTURE_fixture end
+// CAPTURE_model end
 
 static void cgltf_write_asset(cgltf_write_context* context, const cgltf_asset* asset)
 {
@@ -381,6 +420,15 @@ static void cgltf_write_asset(cgltf_write_context* context, const cgltf_asset* a
 	cgltf_write_strprop(context, "generator", asset->generator);
 	cgltf_write_strprop(context, "version", asset->version);
 	cgltf_write_strprop(context, "min_version", asset->min_version);
+
+	// CAPTURE_model start
+	if (asset->has_capture_model)
+	{
+		context->extension_flags |= CGLTF_EXTENSION_FLAG_CAPTURE_MODEL;
+		cgltf_write_capture_model(context, &asset->capture_model);
+	}
+	// CAPTURE_model end
+
 	cgltf_write_line(context, "}");
 }
 
@@ -701,13 +749,13 @@ static void cgltf_write_node(cgltf_write_context* context, const cgltf_node* nod
 		CGLTF_WRITE_IDXPROP("camera", node->camera, context->data->cameras);
 	}
 
-	// CAPTURE_fixture start
-	if (node->has_fixture && !node->light)
+	// CAPTURE_model start
+	if (node->has_capture_model && !node->light)
 	{
-		context->extension_flags |= CGLTF_EXTENSION_FLAG_FIXTURE;
-		cgltf_write_fixture(context, &node->fixture);
+		context->extension_flags |= CGLTF_EXTENSION_FLAG_CAPTURE_MODEL;
+		cgltf_write_capture_model(context, &node->capture_model);
 	}
-	// CAPTURE_fixture end
+	// CAPTURE_model end
 
 	cgltf_write_line(context, "}");
 }
@@ -1014,11 +1062,11 @@ cgltf_size cgltf_write(const cgltf_options* options, char* buffer, cgltf_size si
 		if (context->extension_flags & CGLTF_EXTENSION_FLAG_LIGHTS_PUNCTUAL) {
 			cgltf_write_stritem(context, "KHR_lights_punctual");
 		}
-		// CAPTURE_fixture start
-		if (context->extension_flags & CGLTF_EXTENSION_FLAG_FIXTURE) {
-			cgltf_write_stritem(context, "CAPTURE_fixture");
+		// CAPTURE_model start
+		if (context->extension_flags & CGLTF_EXTENSION_FLAG_CAPTURE_MODEL) {
+			cgltf_write_stritem(context, "CAPTURE_model");
 		}
-		// CAPTURE_fixture end
+		// CAPTURE_model end
 		cgltf_write_line(context, "]");
 	}
 
