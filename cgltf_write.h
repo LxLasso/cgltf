@@ -163,7 +163,7 @@ static void cgltf_write_line(cgltf_write_context* context, const char* line)
 	}
 	cgltf_write_indent(context);
 	CGLTF_SPRINTF("%s", line);
-	size_t last = strlen(line) - 1;
+	cgltf_size last = (cgltf_size)(strlen(line) - 1);
 	if (line[0] == ']' || line[0] == '}')
 	{
 		context->needs_comma = 1;
@@ -245,11 +245,11 @@ static void cgltf_write_boolprop_optional(cgltf_write_context* context, const ch
 	}
 }
 
-static void cgltf_write_floatarrayprop(cgltf_write_context* context, const char* label, const cgltf_float* vals, int dim)
+static void cgltf_write_floatarrayprop(cgltf_write_context* context, const char* label, const cgltf_float* vals, cgltf_size dim)
 {
 	cgltf_write_indent(context);
 	CGLTF_SPRINTF("\"%s\": [", label);
-	for (int i = 0; i < dim; ++i)
+	for (cgltf_size i = 0; i < dim; ++i)
 	{
 		if (i != 0)
 		{
@@ -314,7 +314,7 @@ static const char* cgltf_str_from_type(cgltf_type type)
 	}
 }
 
-static int cgltf_dim_from_type(cgltf_type type)
+static cgltf_size cgltf_dim_from_type(cgltf_type type)
 {
 	switch (type)
 	{
@@ -509,7 +509,7 @@ static void cgltf_write_mesh(cgltf_write_context* context, const cgltf_mesh* mes
 
 	if (mesh->weights_count > 0)
 	{
-		cgltf_write_floatarrayprop(context, "weights", mesh->weights, (int)mesh->weights_count);
+		cgltf_write_floatarrayprop(context, "weights", mesh->weights, mesh->weights_count);
 	}
 	cgltf_write_extras(context, &mesh->extras);
 	cgltf_write_line(context, "}");
@@ -783,7 +783,7 @@ static void cgltf_write_node(cgltf_write_context* context, const cgltf_node* nod
 
 	if (node->weights_count > 0)
 	{
-		cgltf_write_floatarrayprop(context, "weights", node->weights, (int)node->weights_count);
+		cgltf_write_floatarrayprop(context, "weights", node->weights, node->weights_count);
 	}
 
 	if (node->camera)
@@ -818,7 +818,7 @@ static void cgltf_write_accessor(cgltf_write_context* context, const cgltf_acces
 	CGLTF_WRITE_IDXPROP("bufferView", accessor->buffer_view, context->data->buffer_views);
 	cgltf_write_intprop(context, "componentType", cgltf_int_from_component_type(accessor->component_type), 0);
 	cgltf_write_strprop(context, "type", cgltf_str_from_type(accessor->type));
-	int dim = cgltf_dim_from_type(accessor->type);
+	cgltf_size dim = cgltf_dim_from_type(accessor->type);
 	cgltf_write_boolprop_optional(context, "normalized", accessor->normalized, false);
 	cgltf_write_intprop(context, "byteOffset", (int)accessor->offset, 0);
 	cgltf_write_intprop(context, "count", (int)accessor->count, -1);
