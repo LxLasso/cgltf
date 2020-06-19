@@ -101,7 +101,9 @@ cgltf supports core glTF 2.0:
 - extras data
 
 cgltf also supports some glTF extensions:
+- KHR_draco_mesh_compression (requires a library like [Google's Draco](https://github.com/google/draco) for decompression though)
 - KHR_lights_punctual
+- KHR_materials_clearcoat
 - KHR_materials_pbrSpecularGlossiness
 - KHR_materials_unlit
 - KHR_texture_transform
